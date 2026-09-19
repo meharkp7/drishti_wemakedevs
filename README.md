@@ -58,3 +58,26 @@ storage/        Storage clients/adapters (object store + metadata DB)
 tests/          unit / integration / e2e
 configs/        Centralized configuration (no magic constants in code)
 scripts/        One-off/dev scripts
+
+## LoveDA experiment milestone
+
+The repository now includes a locked, reproducible LoveDA benchmark protocol and runnable experiment entrypoint:
+
+- `configs/experiments/loveda_m1_baseline.json` — first M1 baseline
+- `configs/experiments/loveda_full_benchmark_v1.json` — M1–M7 protocol
+- `scripts/run_loveda_benchmark.py` — dataset validation, dry-run, training and benchmark execution
+- `docs/MILESTONE_B_LOVEDA.md` — protocol, model mapping and evidence requirements
+
+Start with a dry run:
+
+```powershell
+python scripts/run_loveda_benchmark.py --loveda-root "C:\Users\siddh\Downloads\LoveDA" --config configs/experiments/loveda_m1_baseline.json --dry-run
+```
+
+Then run M1:
+
+```powershell
+python scripts/run_loveda_benchmark.py --loveda-root "C:\Users\siddh\Downloads\LoveDA" --config configs/experiments/loveda_m1_baseline.json
+```
+
+The benchmark records validation metrics, per-class results, urban/rural breakdowns, confusion matrix, parameter count, representative inference latency and accelerator memory where available. No model is declared the winner until measured results exist.
