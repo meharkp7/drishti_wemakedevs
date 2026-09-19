@@ -44,3 +44,6 @@ data/*
 !tests/fixtures/*.png
 data/
 **/data/
+
+__pycache__/
+*.pyc
