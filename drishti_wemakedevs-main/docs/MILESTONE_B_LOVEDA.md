@@ -56,11 +56,30 @@ The benchmark artifact records:
 11. Exact checkpoint path and model metadata
 12. Exact training configuration and seed
 
+## LoveDA local dataset layout
+
+Keep the LoveDA dataset outside Git, but stage it in the repository at:
+
+```text
+data/
+└── loveda/
+```
+
+The centralized default is `data/loveda`, configured by `LOVEDA_ROOT` in `configs/config.py`.
+It is resolved relative to the repository root, so every teammate can use the same command after cloning and placing their local LoveDA copy there.
+
+If the dataset is stored elsewhere, override it without editing the code:
+
+```powershell
+$env:DRISHTI_LOVEDA_ROOT = "D:\datasets\LoveDA"
+```
+
+You can also pass `--loveda-root` for a one-off override.
+
 ## Running M1
 
 ```powershell
 python scripts/run_loveda_benchmark.py `
-  --loveda-root "C:\Users\siddh\Downloads\LoveDA" `
   --config configs/experiments/loveda_m1_baseline.json
 ```
 
@@ -68,7 +87,6 @@ Before training, use `--dry-run` to validate the dataset, loader, configuration 
 
 ```powershell
 python scripts/run_loveda_benchmark.py `
-  --loveda-root "C:\Users\siddh\Downloads\LoveDA" `
   --config configs/experiments/loveda_m1_baseline.json `
   --dry-run
 ```
@@ -77,7 +95,6 @@ python scripts/run_loveda_benchmark.py `
 
 ```powershell
 python scripts/run_loveda_benchmark.py `
-  --loveda-root "C:\Users\siddh\Downloads\LoveDA" `
   --config configs/experiments/loveda_full_benchmark_v1.json `
   --models all
 ```
