@@ -3,12 +3,10 @@
 Examples
 --------
 python scripts/run_loveda_benchmark.py \
-  --loveda-root "C:\\Users\\siddh\\Downloads\\LoveDA" \
   --config configs/experiments/loveda_m1_baseline.json
 
 To benchmark all registered candidates with the same protocol:
 python scripts/run_loveda_benchmark.py \
-  --loveda-root "C:\\Users\\siddh\\Downloads\\LoveDA" \
   --config configs/experiments/loveda_m1_baseline.json \
   --models all
 
@@ -31,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from configs.config import LOVEDA_ROOT
 from datasets.loveda.manifest import scan_dataset
 from training.benchmark import BenchmarkRunner
 from training.config import TrainingConfig
@@ -69,7 +68,14 @@ def _build_training_config(payload: dict[str, Any]) -> TrainingConfig:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--loveda-root", required=True, help="Staged LoveDA root directory.")
+    parser.add_argument(
+        "--loveda-root",
+        default=None,
+        help=(
+            "Staged LoveDA root directory. Defaults to DRISHTI_LOVEDA_ROOT "
+            "or the repo-relative data/loveda directory."
+        ),
+    )
     parser.add_argument("--config", required=True, type=Path, help="JSON benchmark configuration.")
     parser.add_argument(
         "--models",
@@ -92,7 +98,11 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
-    root = Path(args.loveda_root).expanduser().resolve()
+    configured_root = args.loveda_root or LOVEDA_ROOT
+    root = Path(configured_root).expanduser()
+    if not root.is_absolute():
+        root = REPO_ROOT / root
+    root = root.resolve()
     config_payload = _load_json(args.config)
 
     if not root.exists() or not root.is_dir():
