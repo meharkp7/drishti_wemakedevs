@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pydantic
+shapely
+rasterio
+geopandas
+pyproj
+numpy
+Pillow
+sqlalchemy
+boto3
+python-dotenv
+pytest
+httpx

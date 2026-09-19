@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+.vite/
+
+# Env / secrets
+.env
+.env.*
+*.pem
+*.key
+.venv/
+.pytest_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Data / model / imagery artifacts (do not commit large binaries)
+storage/raw/
+storage/processed/
+storage/masks/
+storage/vectors/
+storage/changes/
+storage/exports/
+storage/reports/
+storage/crowdsourced/
+*.tif
+*.tiff
+*.geotiff
+*.pt
+*.onnx
+*.h5
+
+# Logs
+*.log
+logs/
+
+# Local envs generated during Phase 1/2 walkthrough
+backend/.venv/
+frontend/node_modules/
+configs/__pycache__/
+**/__pycache__/
+.pytest_cache/
+
+data/
+*.png
