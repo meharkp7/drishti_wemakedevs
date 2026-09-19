@@ -274,6 +274,27 @@ def _fpn_resnet50(
     )
 
 
+def _cnn_mamba(**kwargs: Any) -> SegmentationModel:
+    """Lazily construct the dependency-free M5 research candidate."""
+    from training.models.mamba import cnn_mamba
+
+    return cnn_mamba(**kwargs)
+
+
+def _foundation_geospatial(**kwargs: Any) -> SegmentationModel:
+    """Lazily construct the M6 reference foundation architecture."""
+    from training.models.foundation import foundation_geospatial
+
+    return foundation_geospatial(**kwargs)
+
+
+def _dual_path_mamba(**kwargs: Any) -> SegmentationModel:
+    """Lazily construct the M7 dual-path frequency candidate."""
+    from training.models.dual_path import dual_path_mamba
+
+    return dual_path_mamba(**kwargs)
+
+
 class ModelRegistry:
     """
     Explicit registry of segmentation architectures.
@@ -322,6 +343,30 @@ class ModelRegistry:
             factory=_fpn_resnet50,
             description=(
                 "Feature Pyramid Network with a ResNet-50 encoder."
+            ),
+        )
+
+        self.register(
+            name="cnn_mamba",
+            factory=_cnn_mamba,
+            description=(
+                "CNN encoder with bidirectional state-space mixing."
+            ),
+        )
+
+        self.register(
+            name="foundation_geospatial",
+            factory=_foundation_geospatial,
+            description=(
+                "Reference foundation encoder with geospatial decoder."
+            ),
+        )
+
+        self.register(
+            name="dual_path_mamba",
+            factory=_dual_path_mamba,
+            description=(
+                "Dual CNN/state-space model with optional frequency fusion."
             ),
         )
 

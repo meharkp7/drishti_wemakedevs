@@ -139,6 +139,37 @@ class LocalFileJobRepository:
     def _lock_path_for(self, job_id: UUID) -> Path:
         return self._root_dir / f".{job_id}.lock"
 
+    @staticmethod
+    def _ensure_lock_file(lock_path: Path) -> None:
+        """Create a one-byte Windows lock file exactly once.
+
+        ``msvcrt.locking`` locks a byte range, so a zero-length file cannot
+        be locked.  Initialising the byte while entering the critical section
+        is racy: another process may be denied even a read of that byte while
+        the first process holds it.  Create the sentinel atomically before
+        opening the handle that will be locked instead.
+        """
+        try:
+            descriptor = os.open(
+                lock_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            )
+        except FileExistsError:
+            return
+        except OSError as exc:
+            raise JobPersistenceError(
+                f"Unable to initialize lock file: {lock_path}"
+            ) from exc
+
+        try:
+            os.write(descriptor, b"0")
+        except OSError as exc:
+            raise JobPersistenceError(
+                f"Unable to initialize lock file: {lock_path}"
+            ) from exc
+        finally:
+            os.close(descriptor)
+
     @contextmanager
     def _locked(
         self,
@@ -149,7 +180,8 @@ class LocalFileJobRepository:
         """Acquire a per-job advisory OS lock."""
         lock_path = self._lock_path_for(job_id)
         try:
-            with lock_path.open("a+b") as handle:
+            self._ensure_lock_file(lock_path)
+            with lock_path.open("r+b") as handle:
                 self._acquire_lock(handle, exclusive=exclusive)
                 try:
                     yield
@@ -167,13 +199,7 @@ class LocalFileJobRepository:
         if os.name == "nt":
             import msvcrt
 
-            # msvcrt.locking operates on a byte range. The lock file is
-            # guaranteed to contain at least one byte before locking.
-            handle.seek(0)
-            if handle.read(1) == b"":
-                handle.seek(0)
-                handle.write(b"0")
-                handle.flush()
+            # ``_ensure_lock_file`` guarantees a byte exists before locking.
             handle.seek(0)
             mode = msvcrt.LK_LOCK
             msvcrt.locking(handle.fileno(), mode, 1)

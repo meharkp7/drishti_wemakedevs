@@ -16,12 +16,14 @@ replacement: everything downstream only depends on the PredictionArtifact contra
 below, not on which model produced it.
 """
 
+import os
 import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 
 import torch
 from torchvision.models.segmentation import deeplabv3_resnet50, DeepLabV3_ResNet50_Weights
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 # COCO-with-VOC-labels class set that ships with this torchvision weight set.
 # NOTE: placeholder classes for Phase 2 plumbing only — not the final DRISHTI class set.
@@ -49,13 +51,58 @@ def load_model() -> LoadedModel:
     Inference Router (Phase 13) is what will later pick GPU/NPU/CPU/cloud per request.
     """
     weights = DeepLabV3_ResNet50_Weights.DEFAULT
-    transform = weights.transforms()
+    allow_download = (
+        os.environ.get("DRISHTI_ALLOW_BASELINE_MODEL_DOWNLOAD", "false")
+        .strip()
+        .lower()
+        in {"1", "true", "yes"}
+    )
 
-    try:
-        model = deeplabv3_resnet50(weights=weights)
-        model_id = "deeplabv3_resnet50_coco_voc"
-        model_version = weights.value if hasattr(weights, "value") else "default"
-    except Exception as exc:
+    if allow_download:
+        try:
+            model = deeplabv3_resnet50(weights=weights)
+            transform = weights.transforms()
+            model_id = "deeplabv3_resnet50_coco_voc"
+            model_version = weights.value if hasattr(weights, "value") else "default"
+        except Exception as exc:
+            warnings.warn(
+                f"Could not download pretrained weights ({exc}). "
+                "Falling back to a randomly initialized model for pipeline validation only."
+            )
+            model, transform, model_id, model_version = _untrained_fallback()
+    else:
+        model, transform, model_id, model_version = _untrained_fallback()
+
+    model.eval()
+
+    return LoadedModel(
+        model=model,
+        classes=VOC_CLASSES,
+        model_id=model_id,
+        model_version=str(model_version),
+        preprocess_transform=transform,
+    )
+
+
+def _untrained_fallback() -> tuple[torch.nn.Module, object, str, str]:
+    """Return the explicit offline-only Phase-2 plumbing baseline."""
+    return (
+        deeplabv3_resnet50(weights=None, weights_backbone=None),
+        Compose(
+            [
+                ToTensor(),
+                Normalize(
+                    mean=(0.485, 0.456, 0.406),
+                    std=(0.229, 0.224, 0.225),
+                ),
+            ]
+        ),
+        "deeplabv3_resnet50_UNTRAINED_OFFLINE_BASELINE",
+        "random_init",
+    )
+
+    # Legacy fallback rationale retained below for context.
+    if False:
         # Pretrained weights live on download.pytorch.org, which some sandboxed/offline
         # environments (including this one) don't have network access to. Fall back to
         # a randomly-initialized model of the identical architecture so the PIPELINE

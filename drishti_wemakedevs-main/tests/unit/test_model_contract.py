@@ -554,8 +554,11 @@ def test_builtin_registry_names_are_deterministic():
     registry = ModelRegistry()
 
     assert registry.names() == (
+        "cnn_mamba",
         "deeplabv3plus_resnet101",
         "deeplabv3plus_resnet50",
+        "dual_path_mamba",
+        "foundation_geospatial",
         "fpn_resnet50",
         "unetplusplus_efficientnet_b4",
     )
@@ -564,7 +567,7 @@ def test_builtin_registry_names_are_deterministic():
 def test_builtin_registry_does_not_import_smp_during_registry_construction():
     registry = ModelRegistry()
 
-    assert len(registry) == 4
+    assert len(registry) == 7
     assert registry.contains(
         "deeplabv3plus_resnet50"
     )
