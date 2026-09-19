@@ -8,6 +8,7 @@ import json
 import math
 import os
 import random
+import time
 
 import numpy as np
 import torch
@@ -82,6 +83,7 @@ class BenchmarkModelResult:
     history: tuple[Mapping[str, Any], ...]
 
     evaluation: BenchmarkEvaluation
+    inference_benchmark: Mapping[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -98,6 +100,7 @@ class BenchmarkModelResult:
                 for item in self.history
             ],
             "evaluation": self.evaluation.to_dict(),
+            "inference_benchmark": _json_safe(self.inference_benchmark),
         }
 
 
@@ -164,6 +167,8 @@ class BenchmarkRunner:
     model_builder: Callable[..., nn.Module] = build_model
 
     seed: Optional[int] = None
+    latency_warmup_batches: int = 2
+    latency_measurement_batches: int = 10
 
     results: list[BenchmarkModelResult] = field(
         default_factory=list
@@ -202,6 +207,11 @@ class BenchmarkRunner:
 
         self.model_ids = normalized
         self.output_dir = Path(self.output_dir)
+
+        if self.latency_warmup_batches < 0:
+            raise BenchmarkError("latency_warmup_batches must be >= 0.")
+        if self.latency_measurement_batches < 1:
+            raise BenchmarkError("latency_measurement_batches must be >= 1.")
 
         if self.seed is not None:
             if not isinstance(self.seed, int):
@@ -401,6 +411,12 @@ class BenchmarkRunner:
             device,
         )
 
+        inference_benchmark = self._benchmark_inference(
+            model,
+            val_loader,
+            device,
+        )
+
         return BenchmarkModelResult(
             model_id=model_id,
             model_version=str(
@@ -431,7 +447,74 @@ class BenchmarkRunner:
                 for item in experiment_result.history
             ),
             evaluation=evaluation,
+            inference_benchmark=inference_benchmark,
         )
+
+    def _benchmark_inference(
+        self,
+        model: nn.Module,
+        loader: Any,
+        device: torch.device,
+    ) -> dict[str, Any]:
+        """Measure representative inference performance on one validation batch."""
+        warmup_batches = self.latency_warmup_batches
+        measurement_batches = self.latency_measurement_batches
+
+        try:
+            first_batch = next(iter(loader))
+        except StopIteration as exc:
+            raise BenchmarkError("Validation loader produced zero batches.") from exc
+
+        if not isinstance(first_batch, Mapping):
+            raise BenchmarkError("Validation batch must be a mapping.")
+
+        images = first_batch.get("image")
+        if not isinstance(images, torch.Tensor):
+            raise BenchmarkError("Validation batch is missing tensor 'image'.")
+
+        images = images.to(device, non_blocking=True)
+        model.eval()
+
+        def synchronize() -> None:
+            if device.type == "cuda":
+                torch.cuda.synchronize(device)
+            elif device.type == "mps" and hasattr(torch, "mps"):
+                torch.mps.synchronize()
+
+        with torch.inference_mode():
+            for _ in range(warmup_batches):
+                _ = model(images)
+            synchronize()
+
+            latencies_ms: list[float] = []
+            for _ in range(measurement_batches):
+                synchronize()
+                started = time.perf_counter()
+                _ = model(images)
+                synchronize()
+                latencies_ms.append((time.perf_counter() - started) * 1000.0)
+
+        values = np.asarray(latencies_ms, dtype=np.float64)
+        batch_size = int(images.shape[0])
+        mean_ms = float(values.mean())
+
+        peak_memory_mb = None
+        if device.type == "cuda":
+            peak_memory_mb = float(torch.cuda.max_memory_allocated(device) / (1024 ** 2))
+        elif device.type == "mps" and hasattr(torch.mps, "current_allocated_memory"):
+            peak_memory_mb = float(torch.mps.current_allocated_memory() / (1024 ** 2))
+
+        return {
+            "device": str(device),
+            "warmup_batches": warmup_batches,
+            "measurement_batches": len(latencies_ms),
+            "batch_size": batch_size,
+            "mean_latency_ms": mean_ms,
+            "median_latency_ms": float(np.median(values)),
+            "p95_latency_ms": float(np.percentile(values, 95)),
+            "images_per_second": float(batch_size / (mean_ms / 1000.0)),
+            "peak_memory_mb": peak_memory_mb,
+        }
 
     # ------------------------------------------------------------------
     # Model / loss
@@ -572,9 +655,7 @@ class BenchmarkRunner:
                         masks,
                     )
 
-                    domains = batch.get(
-                        "domains"
-                    )
+                    domains = batch.get("domain", batch.get("domains"))
 
                     if domains is None:
                         continue
