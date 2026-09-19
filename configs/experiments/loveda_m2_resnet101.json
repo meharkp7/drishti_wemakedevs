@@ -1,0 +1,55 @@
+{
+  "benchmark_id": "loveda_m2_resnet101_v1",
+  "dataset": "LoveDA",
+  "model_ids": [
+    "deeplabv3plus_resnet101"
+  ],
+  "seed": 26137,
+  "training": {
+    "epochs": 50,
+    "batch_size": 4,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.0001,
+    "gradient_accumulation_steps": 1,
+    "gradient_clip_norm": 1.0,
+    "amp": true,
+    "amp_dtype": "float16",
+    "optimizer": "adamw",
+    "scheduler": "cosine",
+    "warmup_epochs": 3,
+    "min_learning_rate": 1e-06,
+    "loss": "ce_dice",
+    "class_weighting": "none",
+    "monitor_metric": "mean_iou",
+    "monitor_mode": "max",
+    "early_stopping_patience": 10,
+    "image_size": null,
+    "device": "auto",
+    "num_workers": 0,
+    "pin_memory": false,
+    "persistent_workers": false,
+    "deterministic": true,
+    "checkpoint_dir": "artifacts/checkpoints",
+    "experiment_dir": "artifacts/experiments",
+    "experiment_name": "loveda_m2_resnet101",
+    "notes": "M2 benchmark: DeepLabV3+ with ResNet-101 encoder. Same locked LoveDA protocol as M1; only the model architecture changes."
+  },
+  "data": {
+    "batch_size": 4,
+    "num_workers": 0,
+    "pin_memory": false,
+    "persistent_workers": false,
+    "drop_last": false,
+    "image_size": null,
+    "sampling_strategy": "class_balanced",
+    "class_sampling_power": 1.0,
+    "domain_sampling_power": 1.0,
+    "min_sampling_weight": 1e-06,
+    "max_sampling_weight": 1000000.0
+  },
+  "benchmark": {
+    "output_dir": "artifacts/benchmarks/loveda_m2_resnet101_v1",
+    "latency_warmup_batches": 2,
+    "latency_measurement_batches": 10
+  }
+}
